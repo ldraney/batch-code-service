@@ -19,7 +19,7 @@ Generate unique 6-digit alphanumeric batch codes via webhook with full observabi
 
 ```bash
 # Clone and setup
-git clone https://github.com/YOUR_USERNAME/batch-code-service.git
+git clone https://github.com/ldraney/batch-code-service.git
 cd batch-code-service
 
 # Configure environment
