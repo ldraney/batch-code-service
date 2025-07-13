@@ -4,6 +4,22 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const cors = require('cors');
 
+// Initialize Sentry before importing other modules
+if (process.env.SENTRY_DSN) {
+  const Sentry = require('@sentry/node');
+  const { ProfilingIntegration } = require('@sentry/profiling-node');
+  
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    integrations: [
+      new ProfilingIntegration(),
+    ],
+    tracesSampleRate: 1.0,
+    profilesSampleRate: 1.0,
+  });
+}
+
 const { generateBatchCode } = require('./generator');
 const { metricsMiddleware, register } = require('./metrics');
 const { healthCheck } = require('./health');
@@ -16,6 +32,14 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'default-secret-change-me';
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+
+// Add Sentry request handler if Sentry is configured
+if (process.env.SENTRY_DSN) {
+  const Sentry = require('@sentry/node');
+  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.Handlers.tracingHandler());
+}
+
 app.use(metricsMiddleware);
 
 // Rate limiting
@@ -112,6 +136,12 @@ app.post('/api/generate', verifyWebhookSignature, async (req, res) => {
 app.use('*', (req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
+
+// Sentry error handler (must be before other error handlers)
+if (process.env.SENTRY_DSN) {
+  const Sentry = require('@sentry/node');
+  app.use(Sentry.Handlers.errorHandler());
+}
 
 // Error handler
 app.use((error, req, res, next) => {
